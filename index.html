@@ -312,10 +312,28 @@
   /* ============ SONGS MODE ============ */
   .songs-section{display:none;padding:0 14px 120px;position:relative;z-index:1}
   .songs-section.active{display:block}
-  .songs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(160px,44vw),1fr));gap:14px;max-width:600px;margin:0 auto}
-  .song-card{background:white;border-radius:var(--card-radius);box-shadow:var(--shadow);padding:20px 12px;text-align:center;cursor:pointer;border:3.5px solid rgba(255,169,77,0.35);user-select:none;transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.2s}
+  .songs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(170px,44vw),1fr));gap:16px;max-width:620px;margin:0 auto}
+  .song-card{background:white;border-radius:var(--card-radius);box-shadow:var(--shadow);padding:20px 12px 16px;text-align:center;cursor:pointer;border:3.5px solid rgba(255,169,77,0.35);user-select:none;transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.2s;position:relative;overflow:hidden}
   .song-card:active{transform:scale(0.92);box-shadow:0 3px 0 rgba(0,0,0,0.1)}
-  .song-card .song-card-emoji{font-size:3.2rem;display:block;margin-bottom:8px}
+
+  /* 曲ごとの個別グラデーション背景 */
+  .song-card[data-song-id="kirakira"]{background:linear-gradient(135deg,#fff9c4 0%,#fff3e0 100%);border-color:#ffd54f}
+  .song-card[data-song-id="musunde"]{background:linear-gradient(135deg,#fce4ec 0%,#fff3e0 100%);border-color:#ef9a9a}
+  .song-card[data-song-id="atama"]{background:linear-gradient(135deg,#e8f5e9 0%,#f1f8e9 100%);border-color:#81c784}
+  .song-card[data-song-id="kaeru"]{background:linear-gradient(135deg,#e8f5e9 0%,#c8e6c9 100%);border-color:#66bb6a}
+  .song-card[data-song-id="chouchou"]{background:linear-gradient(135deg,#e3f2fd 0%,#e8eaf6 100%);border-color:#90caf9}
+  .song-card[data-song-id="obentoubako"]{background:linear-gradient(135deg,#fff3e0 0%,#ffe0b2 100%);border-color:#ffb74d}
+  .song-card[data-song-id="suuji"]{background:linear-gradient(135deg,#e8eaf6 0%,#e3f2fd 100%);border-color:#7986cb}
+  .song-card[data-song-id="aisatsu"]{background:linear-gradient(135deg,#fce4ec 0%,#f3e5f5 100%);border-color:#ce93d8}
+  .song-card[data-song-id="aiueo"]{background:linear-gradient(135deg,#fff9c4 0%,#ffecb3 100%);border-color:#ffd54f}
+
+  /* カード絵文字：大きく＋浮遊アニメーション */
+  .song-card .song-card-emoji{font-size:4rem;display:block;margin-bottom:10px;animation:songCardFloat 3s ease-in-out infinite;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.1))}
+  @keyframes songCardFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+  /* カード装飾：♪ ♫ */
+  .song-card::before{content:'♪';position:absolute;top:8px;left:10px;font-size:0.8rem;opacity:0.15;animation:songCardFloat 4s ease-in-out infinite}
+  .song-card::after{content:'♫';position:absolute;bottom:8px;left:10px;font-size:0.7rem;opacity:0.12;animation:songCardFloat 5s ease-in-out infinite reverse}
   .song-card .song-card-title{font-size:clamp(0.9rem,3vw,1.05rem);font-weight:900;color:var(--dark);line-height:1.3}
   .song-card .song-card-thai{font-size:0.6rem;color:#bbb;font-weight:700;margin-top:3px}
 
@@ -427,6 +445,13 @@
     60% { transform: scale(1.2); opacity: 1; }
     100% { transform: scale(1); }
   }
+
+/* ============ SONGS HEADER ============ */
+  .songs-header{text-align:center;padding:10px 0 16px;display:flex;justify-content:center;gap:16px}
+  .songs-header-note{font-size:1.8rem;animation:songCardFloat 2s ease-in-out infinite;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.1))}
+  .songs-header-note:nth-child(1){animation-delay:0s}
+  .songs-header-note:nth-child(2){animation-delay:0.5s}
+  .songs-header-note:nth-child(3){animation-delay:1s}
 
 /* ============ RECORDING ============ */
 .song-card { position: relative; }
@@ -564,6 +589,11 @@
 
 <!-- ============ SONGS SECTION ============ -->
 <div class="songs-section" id="songsSection">
+  <div class="songs-header">
+    <span class="songs-header-note">🎵</span>
+    <span class="songs-header-note">🎶</span>
+    <span class="songs-header-note">🎵</span>
+  </div>
   <div class="songs-list" id="songsList"></div>
 </div>
 
@@ -2103,25 +2133,25 @@ const songs = [
     category: 'greetings',
     lyrics: [
       {jp:'おはよう おはよう',        thai:'สวัสดี สวัสดี',           duration:3200,
-        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}],
+        notes:[{freq:NOTE_FREQ.C4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.G4,duration:700},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.A4,duration:500}],
         visuals:[{text:'☀️',delay:0},{text:'🌅',delay:1200}]},
       {jp:'あさの ごあいさつ',        thai:'ทักทาย ตอนเช้า',          duration:3200,
-        notes:[{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}],
+        notes:[{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.D4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.C4,duration:700}],
         visuals:[{text:'🙇',delay:0}]},
       {jp:'こんにちは こんにちは',    thai:'สวัสดี สวัสดี',           duration:3200,
-        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}],
+        notes:[{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.A4,duration:700},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.C5,duration:500}],
         visuals:[{text:'🌞',delay:0}]},
       {jp:'ひるの ごあいさつ',        thai:'ทักทาย ตอนกลางวัน',       duration:3200,
-        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}],
+        notes:[{freq:NOTE_FREQ.C5,duration:400},{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.D4,duration:400},{freq:NOTE_FREQ.C4,duration:700}],
         visuals:[{text:'👋',delay:0}]},
       {jp:'こんばんは こんばんは',    thai:'สวัสดี สวัสดี',           duration:3200,
-        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}],
+        notes:[{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.D4,duration:700},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.G4,duration:500}],
         visuals:[{text:'🌙',delay:0},{text:'⭐',delay:1200}]},
       {jp:'よるの ごあいさつ',        thai:'ทักทาย ตอนเย็น',          duration:3200,
-        notes:[{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}],
+        notes:[{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.D4,duration:300},{freq:NOTE_FREQ.C4,duration:300},{freq:NOTE_FREQ.D4,duration:300},{freq:NOTE_FREQ.C4,duration:700}],
         visuals:[{text:'🙇',delay:0}]},
       {jp:'おやすみなさーい',         thai:'ราตรีสวัสดิ์',            duration:3500,
-        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:1000}],
+        notes:[{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700},{freq:NOTE_FREQ.C4,duration:1000}],
         visuals:[{text:'😴',delay:0},{text:'💤',delay:800},{text:'⭐',delay:1600}]},
     ],
   },
@@ -2188,15 +2218,15 @@ function renderSongsList() {
   const matched = songs.filter(s => s.category === currentCat);
   const others  = songs.filter(s => s.category !== currentCat);
   const ordered = [...matched, ...others];
-  ordered.forEach(song => {
+  ordered.forEach((song, index) => {
     const card = document.createElement('div');
     card.className = 'song-card';
+    card.dataset.songId = song.id;
     if (song.category === currentCat) {
-      card.style.borderColor = 'rgba(255,169,77,0.7)';
-      card.style.background = '#fffbf0';
+      card.style.boxShadow = '0 6px 0 rgba(255,169,77,0.3), inset 0 0 0 2px rgba(255,169,77,0.2)';
     }
     card.innerHTML = `
-      <span class="song-card-emoji">${song.emoji}</span>
+      <span class="song-card-emoji" style="animation-delay:${index * 0.4}s">${song.emoji}</span>
       <div class="song-card-title">${song.title}</div>
       <div class="song-card-thai">${song.titleThai}</div>
       <button class="song-record-btn" data-song-id="${song.id}" title="ろくおん">🎙️</button>
