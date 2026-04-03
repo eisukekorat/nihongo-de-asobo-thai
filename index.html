@@ -331,6 +331,70 @@
   .song-lyric-thai{font-size:clamp(0.8rem,2.5vw,1rem);color:#aaa;font-weight:700;margin-top:8px;min-height:1.5rem;text-align:center}
   .song-progress-bar{position:absolute;bottom:0;left:0;height:7px;background:var(--c4);border-radius:0 3px 3px 0;transition:width 0.1s linear;min-width:0}
   .song-tap-hint{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:0.8rem;color:#ccc;font-weight:700;white-space:nowrap}
+
+  /* ============ NOTE BOUNCE ============ */
+  @keyframes noteBounce {
+    0% { transform: scale(1) translateY(0); }
+    30% { transform: scale(1.15) translateY(-12px); }
+    60% { transform: scale(0.95) translateY(2px); }
+    100% { transform: scale(1) translateY(0); }
+  }
+  .song-main-emoji.bounce {
+    animation: noteBounce 0.3s ease-out;
+  }
+
+  /* ============ REPEAT BUTTON ============ */
+  .song-repeat-btn {
+    display: none;
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ff9a56, #ff6b6b);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 16px 32px;
+    font-size: 1.2rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 10;
+    white-space: nowrap;
+  }
+  .song-repeat-btn:active {
+    transform: translateX(-50%) scale(0.92) translateY(3px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+  }
+  @keyframes popIn {
+    0% { transform: translateX(-50%) scale(0); opacity: 0; }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+
+  /* ============ SPEED TOGGLE ============ */
+  .song-speed-toggle {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border-radius: 50px;
+    padding: 8px 18px;
+    font-weight: 800;
+    color: #666;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.08);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+  }
+  .song-speed-toggle:active {
+    transform: translateX(-50%) scale(0.92);
+  }
 </style>
 </head>
 <body>
@@ -388,6 +452,10 @@
 
 <!-- ============ SONG PLAY OVERLAY ============ -->
 <div class="song-overlay" id="songOverlay">
+  <div class="song-speed-toggle" id="songSpeedToggle" onclick="toggleSongSpeed()">
+    <span id="songSpeedIcon">🐇</span>
+    <span id="songSpeedLabel">ふつう</span>
+  </div>
   <div class="song-counter" id="songCounter">1 / 6</div>
   <button class="song-close" onclick="stopSong()">✕</button>
   <span class="song-main-emoji" id="songMainEmoji">⭐</span>
@@ -395,7 +463,8 @@
   <div class="song-lyric-jp" id="songLyricJp"></div>
   <div class="song-lyric-thai" id="songLyricThai"></div>
   <div class="song-progress-bar" id="songProgressBar"></div>
-  <div class="song-tap-hint">タップで もういちど 🔊</div>
+  <button class="song-repeat-btn" id="songRepeatBtn" onclick="replaySong(event)">🔁 もういっかい！</button>
+  <div class="song-tap-hint" id="songTapHint">タップで もういちど 🔊</div>
 </div>
 
 <div class="quiz-section" id="quizSection">
@@ -1177,6 +1246,7 @@ function setCategory(cat,btn){
   if(currentMode==='cards')renderCards();
   else if(currentMode==='quiz')startQuiz();
   else if(currentMode==='memory')startMemory();
+  else if(currentMode==='songs')renderSongsList();
 }
 
 function setMode(mode,btn){
@@ -1529,19 +1599,129 @@ stopAutoplay=function(){
 // =========================================================
 //  SONGS / 手遊びモード
 // =========================================================
+
+// --- 音程定数 ---
+const NOTE_FREQ = {
+  C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23,
+  'F#4': 369.99, G4: 392.00, A4: 440.00, B4: 493.88,
+  C5: 523.25, D5: 587.33, E5: 659.25
+};
+
+// --- AudioContext (1つだけ作り再利用) ---
+let songAudioCtx = null;
+let songActiveOscillators = [];
+
+function getSongAudioCtx() {
+  if (!songAudioCtx) {
+    songAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (songAudioCtx.state === 'suspended') {
+    songAudioCtx.resume();
+  }
+  return songAudioCtx;
+}
+
+// 鳴っているオシレーターを全部止める
+function stopAllOscillators() {
+  songActiveOscillators.forEach(o => {
+    try { o.stop(); } catch(e) {}
+  });
+  songActiveOscillators = [];
+}
+
+// notes 配列 [{freq, duration}, ...] を順番に鳴らす
+function playMelodyLine(notes) {
+  if (!notes || notes.length === 0) return;
+  stopAllOscillators();
+  const ctx = getSongAudioCtx();
+  let startTime = ctx.currentTime + 0.02;
+  let delayMs = 0; // setTimeout用の累積ディレイ
+
+  const speedMult = songSpeedSlow ? 1.6 : 1.0;
+  const emojiEl = document.getElementById('songMainEmoji');
+
+  notes.forEach(note => {
+    const dur = (note.duration * speedMult) / 1000; // ms → 秒
+    const attackT  = 0.02;
+    const decayT   = 0.10;
+    const sustainL = 0.30;
+    const releaseT = 0.15;
+
+    // メインオシレーター（triangle, gain 0.5）
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(note.freq, startTime);
+
+    // エンベロープ
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(0.5, startTime + attackT);
+    gain.gain.linearRampToValueAtTime(sustainL, startTime + attackT + decayT);
+    gain.gain.setValueAtTime(sustainL, startTime + dur - releaseT);
+    gain.gain.linearRampToValueAtTime(0, startTime + dur);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(startTime);
+    osc.stop(startTime + dur);
+    songActiveOscillators.push(osc);
+
+    // サブオシレーター（sine, 1オクターブ上, gain 0.12）
+    const oscSub  = ctx.createOscillator();
+    const gainSub = ctx.createGain();
+
+    oscSub.type = 'sine';
+    oscSub.frequency.setValueAtTime(note.freq * 2, startTime);
+
+    gainSub.gain.setValueAtTime(0, startTime);
+    gainSub.gain.linearRampToValueAtTime(0.12, startTime + attackT);
+    gainSub.gain.linearRampToValueAtTime(0.12 * sustainL / 0.5, startTime + attackT + decayT);
+    gainSub.gain.setValueAtTime(0.12 * sustainL / 0.5, startTime + dur - releaseT);
+    gainSub.gain.linearRampToValueAtTime(0, startTime + dur);
+
+    oscSub.connect(gainSub);
+    gainSub.connect(ctx.destination);
+
+    oscSub.start(startTime);
+    oscSub.stop(startTime + dur);
+    songActiveOscillators.push(oscSub);
+
+    // バウンスアニメーション
+    const capturedDelay = delayMs;
+    setTimeout(() => {
+      if (!emojiEl) return;
+      emojiEl.classList.remove('bounce');
+      void emojiEl.offsetWidth; // リフローを強制して再アニメーション
+      emojiEl.classList.add('bounce');
+    }, capturedDelay);
+
+    delayMs += note.duration * speedMult;
+    startTime += dur;
+  });
+}
+
 const songs = [
   {
     id: 'kirakira',
     title: 'きらきらぼし',
     titleThai: 'ดาวน้อยระยิบ',
     emoji: '⭐',
+    category: null,
     lyrics: [
-      {jp:'きらきら ひかる',     thai:'แวววาว ส่องแสง',       duration:3200},
-      {jp:'おそらの ほしよ',     thai:'ดาวบนท้องฟ้า',         duration:3200},
-      {jp:'まばたき しては',     thai:'กะพริบ กะพริบ',        duration:3200},
-      {jp:'みんなを みてる',     thai:'มองดู ทุกคน',          duration:3200},
-      {jp:'きらきら ひかる',     thai:'แวววาว ส่องแสง',       duration:3200},
-      {jp:'おそらの ほしよ',     thai:'ดาวบนท้องฟ้า',         duration:3200},
+      {jp:'きらきら ひかる',     thai:'แวววาว ส่องแสง',       duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'おそらの ほしよ',     thai:'ดาวบนท้องฟ้า',         duration:3200,
+        notes:[{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
+      {jp:'まばたき しては',     thai:'กะพริบ กะพริบ',        duration:3200,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'みんなを みてる',     thai:'มองดู ทุกคน',          duration:3200,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'きらきら ひかる',     thai:'แวววาว ส่องแสง',       duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'おそらの ほしよ',     thai:'ดาวบนท้องฟ้า',         duration:3200,
+        notes:[{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
     ],
   },
   {
@@ -1549,14 +1729,22 @@ const songs = [
     title: 'むすんで ひらいて',
     titleThai: 'กำ แล้วแบ',
     emoji: '✊',
+    category: 'actions',
     lyrics: [
-      {jp:'むすんで ひらいて',   thai:'กำ แล้วแบ',            duration:3000},
-      {jp:'てを うって むすんで',thai:'ตบมือ แล้วกำ',         duration:3200},
-      {jp:'また ひらいて',      thai:'แบ อีกครั้ง',          duration:2800},
-      {jp:'てを うって',        thai:'ตบมือ',                duration:2200},
-      {jp:'その てを うえに',   thai:'ยกมือ ขึ้นสูง',        duration:3000},
-      {jp:'むすんで ひらいて',   thai:'กำ แล้วแบ',            duration:3000},
-      {jp:'てを うって むすんで',thai:'ตบมือ แล้วกำ',         duration:3200},
+      {jp:'むすんで ひらいて',   thai:'กำ แล้วแบ',            duration:3000,
+        notes:[{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350}]},
+      {jp:'てを うって むすんで',thai:'ตบมือ แล้วกำ',         duration:3200,
+        notes:[{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ['F#4'],duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ['F#4'],duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'また ひらいて',      thai:'แบ อีกครั้ง',          duration:2800,
+        notes:[{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'てを うって',        thai:'ตบมือ',                duration:2200,
+        notes:[{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ['F#4'],duration:400},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'その てを うえに',   thai:'ยกมือ ขึ้นสูง',        duration:3000,
+        notes:[{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ['F#4'],duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'むすんで ひらいて',   thai:'กำ แล้วแบ',            duration:3000,
+        notes:[{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350}]},
+      {jp:'てを うって むすんで',thai:'ตบมือ แล้วกำ',         duration:3200,
+        notes:[{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ['F#4'],duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ['F#4'],duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
     ],
   },
   {
@@ -1564,14 +1752,22 @@ const songs = [
     title: 'あたま かた ひざ',
     titleThai: 'หัว ไหล่ เข่า',
     emoji: '🙆',
+    category: 'body',
     lyrics: [
-      {jp:'あたま かた ひざ ポン',thai:'หัว ไหล่ เข่า ป๊อก', duration:3200},
-      {jp:'ひざ ポン',            thai:'เข่า ป๊อก',           duration:2000},
-      {jp:'あたま かた ひざ ポン',thai:'หัว ไหล่ เข่า ป๊อก', duration:3200},
-      {jp:'ひざ ポン',            thai:'เข่า ป๊อก',           duration:2000},
-      {jp:'め、みみ、はな、くち', thai:'ตา หู จมูก ปาก',      duration:3000},
-      {jp:'あたま かた ひざ ポン',thai:'หัว ไหล่ เข่า ป๊อก', duration:3200},
-      {jp:'ひざ ポン',            thai:'เข่า ป๊อก',           duration:2000},
+      {jp:'あたま かた ひざ ポン',thai:'หัว ไหล่ เข่า ป๊อก', duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'ひざ ポン',            thai:'เข่า ป๊อก',           duration:2000,
+        notes:[{freq:NOTE_FREQ.F4,duration:600},{freq:NOTE_FREQ.E4,duration:900}]},
+      {jp:'あたま かた ひざ ポン',thai:'หัว ไหล่ เข่า ป๊อก', duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'ひざ ポン',            thai:'เข่า ป๊อก',           duration:2000,
+        notes:[{freq:NOTE_FREQ.F4,duration:600},{freq:NOTE_FREQ.E4,duration:900}]},
+      {jp:'め、みみ、はな、くち', thai:'ตา หู จมูก ปาก',      duration:3000,
+        notes:[{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'あたま かた ひざ ポン',thai:'หัว ไหล่ เข่า ป๊อก', duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'ひざ ポン',            thai:'เข่า ป๊อก',           duration:2000,
+        notes:[{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
     ],
   },
   {
@@ -1579,13 +1775,20 @@ const songs = [
     title: 'かえるのうた',
     titleThai: 'เพลงกบ',
     emoji: '🐸',
+    category: 'animals',
     lyrics: [
-      {jp:'かえるの うたが',      thai:'เพลงของ กบ',           duration:2800},
-      {jp:'きこえて くるよ',      thai:'ได้ยิน มาแล้ว',        duration:2800},
-      {jp:'ゲロ ゲロ ゲロ ゲロ',  thai:'เกโระ เกโระ เกโระ เกโระ',duration:3000},
-      {jp:'ゲロ ゲロ ゲロ',       thai:'เกโระ เกโระ เกโระ',    duration:2500},
-      {jp:'かえるの うたが',      thai:'เพลงของ กบ',           duration:2800},
-      {jp:'きこえて くるよ',      thai:'ได้ยิน มาแล้ว',        duration:2800},
+      {jp:'かえるの うたが',      thai:'เพลงของ กบ',           duration:2800,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
+      {jp:'きこえて くるよ',      thai:'ได้ยิน มาแล้ว',        duration:2800,
+        notes:[{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:700}]},
+      {jp:'ゲロ ゲロ ゲロ ゲロ',  thai:'เกโระ เกโระ เกโระ เกโระ',duration:3000,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350}]},
+      {jp:'ゲロ ゲロ ゲロ',       thai:'เกโระ เกโระ เกโระ',    duration:2500,
+        notes:[{freq:NOTE_FREQ.E4,duration:500},{freq:NOTE_FREQ.D4,duration:500},{freq:NOTE_FREQ.C4,duration:900}]},
+      {jp:'かえるの うたが',      thai:'เพลงของ กบ',           duration:2800,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
+      {jp:'きこえて くるよ',      thai:'ได้ยิน มาแล้ว',        duration:2800,
+        notes:[{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:700}]},
     ],
   },
   {
@@ -1593,14 +1796,22 @@ const songs = [
     title: 'ちょうちょう',
     titleThai: 'ผีเสื้อ',
     emoji: '🦋',
+    category: null,
     lyrics: [
-      {jp:'ちょうちょう ちょうちょう',thai:'ผีเสื้อ ผีเสื้อ',  duration:3200},
-      {jp:'なのはに とまれ',       thai:'เกาะที่ดอกไม้',        duration:3000},
-      {jp:'なのはに あいたら',     thai:'ถ้าเจอดอกไม้',         duration:3200},
-      {jp:'さくらに とまれ',       thai:'เกาะดอกซากุระ',        duration:3000},
-      {jp:'さくらの はなの',       thai:'ดอกซากุระ',            duration:2800},
-      {jp:'はなから はなへ',       thai:'จากดอก สู่ดอก',        duration:2800},
-      {jp:'とまれよ あそべ',       thai:'เกาะสิ เล่นสิ',        duration:2800},
+      {jp:'ちょうちょう ちょうちょう',thai:'ผีเสื้อ ผีเสื้อ',  duration:3200,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:700},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'なのはに とまれ',       thai:'เกาะที่ดอกไม้',        duration:3000,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'なのはに あいたら',     thai:'ถ้าเจอดอกไม้',         duration:3200,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:700},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'さくらに とまれ',       thai:'เกาะดอกซากุระ',        duration:3000,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:1200}]},
+      {jp:'さくらの はなの',       thai:'ดอกซากุระ',            duration:2800,
+        notes:[{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:700}]},
+      {jp:'はなから はなへ',       thai:'จากดอก สู่ดอก',        duration:2800,
+        notes:[{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'とまれよ あそべ',       thai:'เกาะสิ เล่นสิ',        duration:2800,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:700},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
     ],
   },
   {
@@ -1608,14 +1819,96 @@ const songs = [
     title: 'おべんとうばこ',
     titleThai: 'กล่องข้าว',
     emoji: '🍱',
+    category: 'food',
     lyrics: [
-      {jp:'これくらいの おべんとうばこに',thai:'ในกล่องข้าว ขนาดนี้',  duration:3800},
-      {jp:'おにぎり おにぎり ちょいと つめて',thai:'ข้าวปั้น ข้าวปั้น ใส่เข้าไป',duration:3800},
-      {jp:'きざみしょうがに ごましおふって',thai:'ขิงหั่น โรยงาเกลือ',  duration:3800},
-      {jp:'にんじんさん さくらんぼさん',thai:'แครอท เชอร์รี่',          duration:3200},
-      {jp:'しいたけさん ごぼうさん',   thai:'เห็ดชิตาเกะ โกะโบ',       duration:3000},
-      {jp:'あなのあいた れんこんさん', thai:'รากบัว ที่มีรู',            duration:3200},
-      {jp:'すじのとおった ふーき！',   thai:'ฟุกิ ที่เป็นเส้น!',        duration:3200},
+      {jp:'これくらいの おべんとうばこに',thai:'ในกล่องข้าว ขนาดนี้',  duration:3800,
+        notes:[{freq:NOTE_FREQ.C4,duration:250},{freq:NOTE_FREQ.C4,duration:250},{freq:NOTE_FREQ.C4,duration:250},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'おにぎり おにぎり ちょいと つめて',thai:'ข้าวปั้น ข้าวปั้น ใส่เข้าไป',duration:3800,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'きざみしょうがに ごましおふって',thai:'ขิงหั่น โรยงาเกลือ',  duration:3800,
+        notes:[{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:350}]},
+      {jp:'にんじんさん さくらんぼさん',thai:'แครอท เชอร์รี่',          duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'しいたけさん ごぼうさん',   thai:'เห็ดชิตาเกะ โกะโบ',       duration:3000,
+        notes:[{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'あなのあいた れんこんさん', thai:'รากบัว ที่มีรู',            duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'すじのとおった ふーき！',   thai:'ฟุกิ ที่เป็นเส้น!',        duration:3200,
+        notes:[{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:900}]},
+    ],
+  },
+  // --- 新規追加3曲 ---
+  {
+    id: 'suuji',
+    title: 'すうじのうた',
+    titleThai: 'เพลงนับเลข',
+    emoji: '🔢',
+    category: 'numbers',
+    lyrics: [
+      {jp:'いち に さん し',         thai:'หนึ่ง สอง สาม สี่',     duration:3000,
+        notes:[{freq:NOTE_FREQ.C4,duration:700},{freq:NOTE_FREQ.D4,duration:700},{freq:NOTE_FREQ.E4,duration:700},{freq:NOTE_FREQ.F4,duration:700}]},
+      {jp:'ご ろく しち はち',       thai:'ห้า หก เจ็ด แปด',       duration:3000,
+        notes:[{freq:NOTE_FREQ.G4,duration:700},{freq:NOTE_FREQ.A4,duration:700},{freq:NOTE_FREQ.B4,duration:700},{freq:NOTE_FREQ.C5,duration:700}]},
+      {jp:'く じゅう',               thai:'เก้า สิบ',               duration:2500,
+        notes:[{freq:NOTE_FREQ.D5,duration:700},{freq:NOTE_FREQ.E5,duration:1500}]},
+      {jp:'いーち にー さーん',      thai:'หนึ่ง สอง สาม',          duration:3500,
+        notes:[{freq:NOTE_FREQ.C4,duration:1000},{freq:NOTE_FREQ.D4,duration:1000},{freq:NOTE_FREQ.E4,duration:1200}]},
+      {jp:'し ご ろく',              thai:'สี่ ห้า หก',              duration:2800,
+        notes:[{freq:NOTE_FREQ.F4,duration:600},{freq:NOTE_FREQ.G4,duration:600},{freq:NOTE_FREQ.A4,duration:1200}]},
+      {jp:'しち はち く じゅう！',   thai:'เจ็ด แปด เก้า สิบ!',     duration:3200,
+        notes:[{freq:NOTE_FREQ.B4,duration:600},{freq:NOTE_FREQ.C5,duration:600},{freq:NOTE_FREQ.D5,duration:600},{freq:NOTE_FREQ.E5,duration:1200}]},
+    ],
+  },
+  {
+    id: 'aisatsu',
+    title: 'あいさつのうた',
+    titleThai: 'เพลงทักทาย',
+    emoji: '👋',
+    category: 'greetings',
+    lyrics: [
+      {jp:'おはよう おはよう',        thai:'สวัสดี สวัสดี',           duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'あさの ごあいさつ',        thai:'ทักทาย ตอนเช้า',          duration:3200,
+        notes:[{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
+      {jp:'こんにちは こんにちは',    thai:'สวัสดี สวัสดี',           duration:3200,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'ひるの ごあいさつ',        thai:'ทักทาย ตอนกลางวัน',       duration:3200,
+        notes:[{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:700}]},
+      {jp:'こんばんは こんばんは',    thai:'สวัสดี สวัสดี',           duration:3200,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:700}]},
+      {jp:'よるの ごあいさつ',        thai:'ทักทาย ตอนเย็น',          duration:3200,
+        notes:[{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.C4,duration:700}]},
+      {jp:'おやすみなさーい',         thai:'ราตรีสวัสดิ์',            duration:3500,
+        notes:[{freq:NOTE_FREQ.C4,duration:350},{freq:NOTE_FREQ.D4,duration:350},{freq:NOTE_FREQ.E4,duration:350},{freq:NOTE_FREQ.F4,duration:350},{freq:NOTE_FREQ.G4,duration:350},{freq:NOTE_FREQ.A4,duration:350},{freq:NOTE_FREQ.G4,duration:1000}]},
+    ],
+  },
+  {
+    id: 'aiueo',
+    title: 'あいうえおのうた',
+    titleThai: 'เพลง อะ อิ อุ เอะ โอะ',
+    emoji: '🎵',
+    category: 'hiragana',
+    lyrics: [
+      {jp:'あ い う え お',          thai:'อะ อิ อุ เอะ โอะ',        duration:3000,
+        notes:[{freq:NOTE_FREQ.C4,duration:400},{freq:NOTE_FREQ.D4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.C4,duration:400},{freq:NOTE_FREQ.E4,duration:900}]},
+      {jp:'か き く け こ',          thai:'คะ คิ คุ เคะ โคะ',         duration:3000,
+        notes:[{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.G4,duration:900}]},
+      {jp:'さ し す せ そ',          thai:'ซะ ชิ ซุ เซะ โซะ',         duration:3000,
+        notes:[{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:900}]},
+      {jp:'た ち つ て と',          thai:'ทะ ชิ ทสึ เทะ โทะ',        duration:3000,
+        notes:[{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.D4,duration:400},{freq:NOTE_FREQ.C4,duration:900}]},
+      {jp:'な に ぬ ね の',          thai:'นะ นิ นุ เนะ โนะ',         duration:3000,
+        notes:[{freq:NOTE_FREQ.C4,duration:400},{freq:NOTE_FREQ.D4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.G4,duration:900}]},
+      {jp:'は ひ ふ へ ほ',          thai:'ฮะ ฮิ ฟุ เฮะ โฮะ',        duration:3000,
+        notes:[{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.D4,duration:900}]},
+      {jp:'ま み む め も',          thai:'มะ มิ มุ เมะ โมะ',         duration:3000,
+        notes:[{freq:NOTE_FREQ.C4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.E4,duration:400},{freq:NOTE_FREQ.C4,duration:900}]},
+      {jp:'や ゆ よ',                thai:'ยะ ยุ โยะ',                duration:2500,
+        notes:[{freq:NOTE_FREQ.C4,duration:500},{freq:NOTE_FREQ.E4,duration:500},{freq:NOTE_FREQ.G4,duration:1200}]},
+      {jp:'ら り る れ ろ',          thai:'ระ ริ รุ เระ โระ',          duration:3000,
+        notes:[{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.A4,duration:400},{freq:NOTE_FREQ.G4,duration:400},{freq:NOTE_FREQ.F4,duration:400},{freq:NOTE_FREQ.E4,duration:900}]},
+      {jp:'わ を ん！',              thai:'วะ โวะ อึน!',               duration:3000,
+        notes:[{freq:NOTE_FREQ.E4,duration:500},{freq:NOTE_FREQ.D4,duration:500},{freq:NOTE_FREQ.C4,duration:1500}]},
     ],
   },
 ];
@@ -1624,13 +1917,22 @@ let songTimer = null;
 let songLineIndex = 0;
 let currentSong = null;
 let songTotalLines = 0;
+let songSpeedSlow = false;
 
 function renderSongsList() {
   const list = document.getElementById('songsList');
   list.innerHTML = '';
-  songs.forEach(song => {
+  // カテゴリに一致する曲を先頭に、残りをその後ろに（null は常に表示）
+  const matched = songs.filter(s => s.category === currentCat);
+  const others  = songs.filter(s => s.category !== currentCat);
+  const ordered = [...matched, ...others];
+  ordered.forEach(song => {
     const card = document.createElement('div');
     card.className = 'song-card';
+    if (song.category === currentCat) {
+      card.style.borderColor = 'rgba(255,169,77,0.7)';
+      card.style.background = '#fffbf0';
+    }
     card.innerHTML = `
       <span class="song-card-emoji">${song.emoji}</span>
       <div class="song-card-title">${song.title}</div>
@@ -1649,6 +1951,8 @@ function playSong(song) {
   document.getElementById('songMainEmoji').textContent = song.emoji;
   document.getElementById('songTitleLabel').textContent = song.title;
   document.getElementById('songProgressBar').style.width = '0%';
+  document.getElementById('songRepeatBtn').style.display = 'none';
+  document.getElementById('songTapHint').style.display = 'block';
   showSongLine();
 }
 
@@ -1659,7 +1963,10 @@ function showSongLine() {
     celebrate();
     earnSticker();
     earnSticker();
-    setTimeout(() => stopSong(), 1800);
+    // リピートボタンを表示
+    document.getElementById('songRepeatBtn').style.display = 'block';
+    // タップヒントを非表示
+    document.getElementById('songTapHint').style.display = 'none';
     return;
   }
 
@@ -1680,25 +1987,48 @@ function showSongLine() {
     jpEl.classList.remove('fade');
   }, 200);
 
-  // 読み上げ
-  speak(line.jp, 0.78, 1.3);
+  // メロディー再生（notes があればWeb Audio API、なければTTSフォールバック）
+  if (line.notes && line.notes.length > 0) {
+    playMelodyLine(line.notes);
+  } else {
+    speak(line.jp, 0.78, 1.3);
+  }
 
   // プログレスバー
   progressEl.style.width = ((songLineIndex + 1) / songTotalLines * 100) + '%';
 
   // 次の行へ
+  const speedMult = songSpeedSlow ? 1.6 : 1.0;
   clearTimeout(songTimer);
   songTimer = setTimeout(() => {
     songLineIndex++;
     showSongLine();
-  }, line.duration);
+  }, line.duration * speedMult);
 }
 
 function stopSong() {
   clearTimeout(songTimer);
   document.getElementById('songOverlay').classList.remove('active');
+  document.getElementById('songRepeatBtn').style.display = 'none';
+  document.getElementById('songTapHint').style.display = 'block';
   synth.cancel();
+  stopAllOscillators();
   currentSong = null;
+}
+
+function replaySong(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('songRepeatBtn').style.display = 'none';
+  document.getElementById('songTapHint').style.display = 'block';
+  if (currentSong) {
+    playSong(currentSong);
+  }
+}
+
+function toggleSongSpeed() {
+  songSpeedSlow = !songSpeedSlow;
+  document.getElementById('songSpeedIcon').textContent = songSpeedSlow ? '🐢' : '🐇';
+  document.getElementById('songSpeedLabel').textContent = songSpeedSlow ? 'ゆっくり' : 'ふつう';
 }
 
 // 曲オーバーレイをタップで再読み上げ
@@ -1707,10 +2037,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (overlay) {
     overlay.addEventListener('click', (e) => {
       if (e.target.closest('.song-close')) return;
-      if (currentSong && currentSong.lyrics[songLineIndex]) {
-        speak(currentSong.lyrics[songLineIndex].jp, 0.78, 1.3);
-      } else if (currentSong && songLineIndex > 0) {
-        speak(currentSong.lyrics[songLineIndex - 1].jp, 0.78, 1.3);
+      if (e.target.closest('.song-repeat-btn')) return;
+      if (e.target.closest('.song-speed-toggle')) return;
+      const line = currentSong && (currentSong.lyrics[songLineIndex] || currentSong.lyrics[songLineIndex - 1]);
+      if (line) {
+        if (line.notes && line.notes.length > 0) {
+          playMelodyLine(line.notes);
+        } else {
+          speak(line.jp, 0.78, 1.3);
+        }
       }
     });
   }
