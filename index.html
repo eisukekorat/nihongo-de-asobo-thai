@@ -427,6 +427,91 @@
     60% { transform: scale(1.2); opacity: 1; }
     100% { transform: scale(1); }
   }
+
+/* ============ RECORDING ============ */
+.song-card { position: relative; }
+.song-record-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  background: white;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.08);
+  transition: all 0.15s;
+  padding: 0;
+  z-index: 2;
+}
+.song-record-btn:active { transform: scale(0.85); }
+.song-recorded-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 1.1rem;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+.song-rec-indicator {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff4444;
+  color: white;
+  border-radius: 50px;
+  padding: 8px 20px;
+  font-weight: 900;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 0 rgba(200,0,0,0.3);
+  z-index: 10;
+}
+.song-rec-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  animation: recPulse 1s ease-in-out infinite;
+}
+@keyframes recPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.song-rec-actions {
+  display: none;
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  z-index: 10;
+}
+.song-rec-actions.active { display: flex; }
+.song-rec-action-btn {
+  background: white;
+  border: 3px solid #eee;
+  border-radius: 50px;
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.song-rec-action-btn:active { transform: scale(0.92) translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.1); }
+.song-rec-action-btn.save { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border-color: #388E3C; }
+.song-rec-action-btn.delete { background: #ff6b6b; color: white; border-color: #e55; font-size: 0.85rem; padding: 10px 20px; }
 </style>
 </head>
 <body>
@@ -498,6 +583,16 @@
   <div class="song-progress-bar" id="songProgressBar"></div>
   <button class="song-repeat-btn" id="songRepeatBtn" onclick="replaySong(event)">🔁 もういっかい！</button>
   <div class="song-tap-hint" id="songTapHint">タップで もういちど 🔊</div>
+  <div class="song-rec-indicator" id="songRecIndicator" style="display:none">
+    <span class="song-rec-dot"></span>
+    ろくおんちゅう…
+  </div>
+  <div class="song-rec-actions" id="songRecActions">
+    <button class="song-rec-action-btn" onclick="playbackRecording(event)">▶️ きいてみる</button>
+    <button class="song-rec-action-btn save" onclick="confirmSaveRecording(event)">💾 ほぞん</button>
+    <button class="song-rec-action-btn" onclick="retryRecording(event)">🔄 もういちど</button>
+    <button class="song-rec-action-btn delete" onclick="cancelRecording(event)" id="songRecDeleteBtn">🗑️ けす</button>
+  </div>
 </div>
 
 <div class="quiz-section" id="quizSection">
@@ -1633,6 +1728,60 @@ stopAutoplay=function(){
 //  SONGS / 手遊びモード
 // =========================================================
 
+// --- 録音データ保存 (IndexedDB) ---
+const SONG_DB_NAME = 'nihongoSongRecordings';
+const SONG_DB_VERSION = 1;
+const SONG_STORE_NAME = 'recordings';
+
+function openSongDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SONG_DB_NAME, SONG_DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(SONG_STORE_NAME)) {
+        db.createObjectStore(SONG_STORE_NAME, { keyPath: 'songId' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveRecording(songId, blob) {
+  const db = await openSongDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SONG_STORE_NAME, 'readwrite');
+    tx.objectStore(SONG_STORE_NAME).put({ songId, blob, timestamp: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getRecording(songId) {
+  const db = await openSongDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SONG_STORE_NAME, 'readonly');
+    const req = tx.objectStore(SONG_STORE_NAME).get(songId);
+    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function hasRecording(songId) {
+  const blob = await getRecording(songId);
+  return !!blob;
+}
+
+async function deleteRecording(songId) {
+  const db = await openSongDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SONG_STORE_NAME, 'readwrite');
+    tx.objectStore(SONG_STORE_NAME).delete(songId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // --- 音程定数 ---
 const NOTE_FREQ = {
   C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23,
@@ -1673,14 +1822,19 @@ function playMelodyLine(notes) {
   const speedMult = songSpeedSlow ? 1.6 : 1.0;
   const emojiEl = document.getElementById('songMainEmoji');
 
+  // 録音中はカラオケガイドとして聞こえる音量、通常はBGM
+  const melodyGain = isRecording ? 0.4 : 0.08;
+  const melodySustain = isRecording ? 0.25 : 0.05;
+  const subGain = isRecording ? 0.10 : 0.02;
+  const subSustain = isRecording ? 0.05 : 0.01;
+
   notes.forEach(note => {
     const dur = (note.duration * speedMult) / 1000; // ms → 秒
     const attackT  = 0.02;
     const decayT   = 0.10;
-    const sustainL = 0.30;
     const releaseT = 0.15;
 
-    // メインオシレーター（triangle, gain 0.5）
+    // メインオシレーター（triangle）
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
 
@@ -1689,9 +1843,9 @@ function playMelodyLine(notes) {
 
     // エンベロープ
     gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(0.5, startTime + attackT);
-    gain.gain.linearRampToValueAtTime(sustainL, startTime + attackT + decayT);
-    gain.gain.setValueAtTime(sustainL, startTime + dur - releaseT);
+    gain.gain.linearRampToValueAtTime(melodyGain, startTime + attackT);
+    gain.gain.linearRampToValueAtTime(melodySustain, startTime + attackT + decayT);
+    gain.gain.setValueAtTime(melodySustain, startTime + dur - releaseT);
     gain.gain.linearRampToValueAtTime(0, startTime + dur);
 
     osc.connect(gain);
@@ -1701,7 +1855,7 @@ function playMelodyLine(notes) {
     osc.stop(startTime + dur);
     songActiveOscillators.push(osc);
 
-    // サブオシレーター（sine, 1オクターブ上, gain 0.12）
+    // サブオシレーター（sine, 1オクターブ上）
     const oscSub  = ctx.createOscillator();
     const gainSub = ctx.createGain();
 
@@ -1709,9 +1863,9 @@ function playMelodyLine(notes) {
     oscSub.frequency.setValueAtTime(note.freq * 2, startTime);
 
     gainSub.gain.setValueAtTime(0, startTime);
-    gainSub.gain.linearRampToValueAtTime(0.12, startTime + attackT);
-    gainSub.gain.linearRampToValueAtTime(0.12 * sustainL / 0.5, startTime + attackT + decayT);
-    gainSub.gain.setValueAtTime(0.12 * sustainL / 0.5, startTime + dur - releaseT);
+    gainSub.gain.linearRampToValueAtTime(subGain, startTime + attackT);
+    gainSub.gain.linearRampToValueAtTime(subSustain, startTime + attackT + decayT);
+    gainSub.gain.setValueAtTime(subSustain, startTime + dur - releaseT);
     gainSub.gain.linearRampToValueAtTime(0, startTime + dur);
 
     oscSub.connect(gainSub);
@@ -2018,6 +2172,15 @@ let currentSong = null;
 let songTotalLines = 0;
 let songSpeedSlow = false;
 
+// --- 録音関連変数 ---
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordedBlob = null;
+let recordingSong = null;
+let recordingAudioEl = null;
+let recordedPlaybackAudio = null;
+
 function renderSongsList() {
   const list = document.getElementById('songsList');
   list.innerHTML = '';
@@ -2036,26 +2199,61 @@ function renderSongsList() {
       <span class="song-card-emoji">${song.emoji}</span>
       <div class="song-card-title">${song.title}</div>
       <div class="song-card-thai">${song.titleThai}</div>
+      <button class="song-record-btn" data-song-id="${song.id}" title="ろくおん">🎙️</button>
+      <span class="song-recorded-badge" data-song-id="${song.id}" style="display:none">🎤</span>
     `;
-    card.addEventListener('click', () => playSong(song));
+    // カード全体のクリック → 再生
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.song-record-btn')) return; // 録音ボタンは除外
+      playSong(song);
+    });
+    // 録音ボタンのクリック
+    card.querySelector('.song-record-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      startRecording(song);
+    });
     list.appendChild(card);
   });
+  // 録音済みバッジを非同期で更新
+  updateRecordedBadges();
 }
 
-function playSong(song) {
+async function updateRecordedBadges() {
+  for (const song of songs) {
+    const has = await hasRecording(song.id);
+    const badges = document.querySelectorAll(`.song-recorded-badge[data-song-id="${song.id}"]`);
+    badges.forEach(b => b.style.display = has ? 'block' : 'none');
+    // 録音がある曲の録音ボタンのテキストを変更
+    const btns = document.querySelectorAll(`.song-record-btn[data-song-id="${song.id}"]`);
+    btns.forEach(b => b.textContent = has ? '🔄' : '🎙️');
+  }
+}
+
+async function playSong(song) {
   currentSong = song;
   songLineIndex = 0;
   songTotalLines = song.lyrics.length;
+
   document.getElementById('songOverlay').classList.add('active');
   document.getElementById('songMainEmoji').textContent = song.emoji;
   document.getElementById('songMainEmoji').style.display = '';
-  document.getElementById('songVisuals').classList.remove('active');
-  document.getElementById('songVisuals').innerHTML = '';
   document.getElementById('songTitleLabel').textContent = song.title;
   document.getElementById('songProgressBar').style.width = '0%';
   document.getElementById('songRepeatBtn').style.display = 'none';
   document.getElementById('songTapHint').style.display = 'block';
-  showSongLine();
+  document.getElementById('songRecIndicator').style.display = 'none';
+  document.getElementById('songRecActions').classList.remove('active');
+  document.getElementById('songSpeedToggle').style.display = 'flex';
+  document.getElementById('songVisuals').classList.remove('active');
+  document.getElementById('songVisuals').innerHTML = '';
+
+  // 録音があれば録音を再生
+  const blob = await getRecording(song.id);
+  if (blob) {
+    playRecordedSong(song, blob);
+  } else {
+    showSongLine();
+  }
 }
 
 function showSongVisuals(visuals, continuePrevious) {
@@ -2091,7 +2289,12 @@ function showSongVisuals(visuals, continuePrevious) {
 function showSongLine() {
   if (!currentSong) return;
   if (songLineIndex >= currentSong.lyrics.length) {
-    // 曲終了
+    if (isRecording) {
+      // 録音モードの場合
+      onRecordingComplete();
+      return;
+    }
+    // 通常モード（既存の処理）
     celebrate();
     earnSticker();
     earnSticker();
@@ -2123,8 +2326,10 @@ function showSongLine() {
   if (line.notes && line.notes.length > 0) {
     playMelodyLine(line.notes);
   }
-  // TTS も同時に読み上げ（メロディーの有無に関わらず）
-  speak(line.jp, 0.78, 1.3);
+  // 録音中はTTSを鳴らさない（マイクに入るため）
+  if (!isRecording) {
+    speak(line.jp, 0.78, 1.3);
+  }
 
   // ビジュアル表示
   showSongVisuals(line.visuals, line.continuePrevious);
@@ -2146,12 +2351,24 @@ function stopSong() {
   document.getElementById('songOverlay').classList.remove('active');
   document.getElementById('songRepeatBtn').style.display = 'none';
   document.getElementById('songTapHint').style.display = 'block';
+  document.getElementById('songRecIndicator').style.display = 'none';
+  document.getElementById('songRecActions').classList.remove('active');
+  document.getElementById('songSpeedToggle').style.display = 'flex';
   document.getElementById('songVisuals').classList.remove('active');
   document.getElementById('songVisuals').innerHTML = '';
   document.getElementById('songMainEmoji').style.display = '';
   synth.cancel();
   stopAllOscillators();
   currentSong = null;
+  isRecording = false;
+  // 録音中のMediaRecorderを停止
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    try { mediaRecorder.stop(); } catch(e) {}
+  }
+  // 録音プレビューを停止
+  if (recordingAudioEl) { recordingAudioEl.pause(); recordingAudioEl = null; }
+  // 録音済み再生を停止
+  if (recordedPlaybackAudio) { recordedPlaybackAudio.pause(); recordedPlaybackAudio = null; }
 }
 
 function replaySong(e) {
@@ -2169,6 +2386,175 @@ function toggleSongSpeed() {
   document.getElementById('songSpeedLabel').textContent = songSpeedSlow ? 'ゆっくり' : 'ふつう';
 }
 
+// --- 録音ロジック ---
+async function startRecording(song) {
+  recordingSong = song;
+  recordedChunks = [];
+  recordedBlob = null;
+
+  // マイク権限を取得
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e) {
+    alert('マイクが使えません。設定を確認してください。');
+    return;
+  }
+
+  // オーバーレイを開く（録音モード）
+  isRecording = true;
+  songLineIndex = 0;
+  currentSong = song;
+  songTotalLines = song.lyrics.length;
+
+  const overlay = document.getElementById('songOverlay');
+  overlay.classList.add('active');
+  document.getElementById('songMainEmoji').textContent = song.emoji;
+  document.getElementById('songMainEmoji').style.display = '';
+  document.getElementById('songTitleLabel').textContent = song.title;
+  document.getElementById('songProgressBar').style.width = '0%';
+  document.getElementById('songRepeatBtn').style.display = 'none';
+  document.getElementById('songTapHint').style.display = 'none';
+  document.getElementById('songRecActions').classList.remove('active');
+  document.getElementById('songVisuals').classList.remove('active');
+  document.getElementById('songVisuals').innerHTML = '';
+
+  // 録音インジケーター表示
+  document.getElementById('songRecIndicator').style.display = 'flex';
+  // 速度トグルを非表示（録音中は変更不可）
+  document.getElementById('songSpeedToggle').style.display = 'none';
+
+  // 削除ボタンの表示制御（既存録音があれば表示）
+  const hasExisting = await hasRecording(song.id);
+  document.getElementById('songRecDeleteBtn').style.display = hasExisting ? 'block' : 'none';
+
+  // Safari対応: mimeTypeの判定
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+  mediaRecorder = new MediaRecorder(stream, { mimeType });
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+  mediaRecorder.onstop = () => {
+    recordedBlob = new Blob(recordedChunks, { type: mimeType });
+    stream.getTracks().forEach(t => t.stop()); // マイク解放
+  };
+
+  // カウントダウン(3,2,1)の後に開始
+  const counterEl = document.getElementById('songCounter');
+  const jpEl = document.getElementById('songLyricJp');
+  const thaiEl = document.getElementById('songLyricThai');
+  jpEl.textContent = '';
+  thaiEl.textContent = '';
+
+  counterEl.textContent = '3';
+  setTimeout(() => { counterEl.textContent = '2'; }, 800);
+  setTimeout(() => { counterEl.textContent = '1'; }, 1600);
+  setTimeout(() => {
+    counterEl.textContent = `1 / ${songTotalLines}`;
+    mediaRecorder.start();
+    showSongLine();
+  }, 2400);
+}
+
+function onRecordingComplete() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  document.getElementById('songRecIndicator').style.display = 'none';
+  document.getElementById('songRecActions').classList.add('active');
+  document.getElementById('songTapHint').style.display = 'none';
+  document.getElementById('songRepeatBtn').style.display = 'none';
+}
+
+async function playbackRecording(e) {
+  if (e) e.stopPropagation();
+  if (!recordedBlob) return;
+  // 既存の再生を止める
+  if (recordingAudioEl) { recordingAudioEl.pause(); recordingAudioEl = null; }
+  const url = URL.createObjectURL(recordedBlob);
+  recordingAudioEl = new Audio(url);
+  recordingAudioEl.play();
+}
+
+async function confirmSaveRecording(e) {
+  if (e) e.stopPropagation();
+  if (!recordedBlob || !recordingSong) return;
+  await saveRecording(recordingSong.id, recordedBlob);
+  // UIを閉じる
+  stopSong();
+  // バッジを更新
+  updateRecordedBadges();
+}
+
+function retryRecording(e) {
+  if (e) e.stopPropagation();
+  if (recordingAudioEl) { recordingAudioEl.pause(); recordingAudioEl = null; }
+  document.getElementById('songRecActions').classList.remove('active');
+  const song = recordingSong;
+  stopSong(); // 一旦閉じる
+  setTimeout(() => startRecording(song), 300); // 再度開始
+}
+
+async function cancelRecording(e) {
+  if (e) e.stopPropagation();
+  if (recordingSong) {
+    await deleteRecording(recordingSong.id);
+  }
+  if (recordingAudioEl) { recordingAudioEl.pause(); recordingAudioEl = null; }
+  stopSong();
+  updateRecordedBadges();
+}
+
+function playRecordedSong(song, blob) {
+  const url = URL.createObjectURL(blob);
+  recordedPlaybackAudio = new Audio(url);
+  recordedPlaybackAudio.play();
+
+  // 歌詞とビジュアルのタイミング表示
+  songLineIndex = 0;
+  showRecordedSongLine();
+}
+
+function showRecordedSongLine() {
+  if (!currentSong) return;
+  if (songLineIndex >= currentSong.lyrics.length) {
+    celebrate();
+    earnSticker();
+    earnSticker();
+    document.getElementById('songRepeatBtn').style.display = 'block';
+    document.getElementById('songTapHint').style.display = 'none';
+    return;
+  }
+
+  const line = currentSong.lyrics[songLineIndex];
+  const jpEl = document.getElementById('songLyricJp');
+  const thaiEl = document.getElementById('songLyricThai');
+  const counterEl = document.getElementById('songCounter');
+  const progressEl = document.getElementById('songProgressBar');
+
+  counterEl.textContent = `${songLineIndex + 1} / ${songTotalLines}`;
+
+  jpEl.classList.add('fade');
+  setTimeout(() => {
+    jpEl.textContent = line.jp;
+    thaiEl.textContent = line.thai;
+    jpEl.classList.remove('fade');
+  }, 200);
+
+  // ビジュアル表示（メロディーとTTSは鳴らさない）
+  showSongVisuals(line.visuals, line.continuePrevious);
+
+  progressEl.style.width = ((songLineIndex + 1) / songTotalLines * 100) + '%';
+
+  const speedMult = songSpeedSlow ? 1.6 : 1.0;
+  clearTimeout(songTimer);
+  songTimer = setTimeout(() => {
+    songLineIndex++;
+    showRecordedSongLine();
+  }, line.duration * speedMult);
+}
+
 // 曲オーバーレイをタップで再読み上げ
 document.addEventListener('DOMContentLoaded', () => {
   const overlay = document.getElementById('songOverlay');
@@ -2177,12 +2563,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target.closest('.song-close')) return;
       if (e.target.closest('.song-repeat-btn')) return;
       if (e.target.closest('.song-speed-toggle')) return;
+      if (e.target.closest('.song-rec-indicator')) return;
+      if (e.target.closest('.song-rec-actions')) return;
+      if (e.target.closest('.song-rec-action-btn')) return;
       const line = currentSong && (currentSong.lyrics[songLineIndex] || currentSong.lyrics[songLineIndex - 1]);
       if (line) {
         if (line.notes && line.notes.length > 0) {
           playMelodyLine(line.notes);
         }
-        speak(line.jp, 0.78, 1.3);
+        if (!isRecording) {
+          speak(line.jp, 0.78, 1.3);
+        }
       }
     });
   }
