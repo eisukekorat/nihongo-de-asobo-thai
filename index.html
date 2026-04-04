@@ -2332,6 +2332,8 @@ function showSongLine() {
     document.getElementById('songRepeatBtn').style.display = 'block';
     // タップヒントを非表示
     document.getElementById('songTapHint').style.display = 'none';
+    // タイトルラベルを再表示
+    document.getElementById('songTitleLabel').style.display = '';
     return;
   }
 
@@ -2343,6 +2345,9 @@ function showSongLine() {
 
   // カウンター更新
   counterEl.textContent = `${songLineIndex + 1} / ${songTotalLines}`;
+
+  // 歌詞再生中はタイトルラベルを非表示（タイトルと歌詞が重なって見える問題の修正）
+  document.getElementById('songTitleLabel').style.display = 'none';
 
   // フェードイン
   jpEl.classList.add('fade');
@@ -2387,6 +2392,7 @@ function stopSong() {
   document.getElementById('songVisuals').classList.remove('active');
   document.getElementById('songVisuals').innerHTML = '';
   document.getElementById('songMainEmoji').style.display = '';
+  document.getElementById('songTitleLabel').style.display = '';
   synth.cancel();
   stopAllOscillators();
   currentSong = null;
@@ -2554,6 +2560,7 @@ function showRecordedSongLine() {
     earnSticker();
     document.getElementById('songRepeatBtn').style.display = 'block';
     document.getElementById('songTapHint').style.display = 'none';
+    document.getElementById('songTitleLabel').style.display = '';
     return;
   }
 
@@ -2564,6 +2571,9 @@ function showRecordedSongLine() {
   const progressEl = document.getElementById('songProgressBar');
 
   counterEl.textContent = `${songLineIndex + 1} / ${songTotalLines}`;
+
+  // 歌詞再生中はタイトルラベルを非表示
+  document.getElementById('songTitleLabel').style.display = 'none';
 
   jpEl.classList.add('fade');
   setTimeout(() => {
