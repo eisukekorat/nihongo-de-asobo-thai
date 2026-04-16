@@ -2350,6 +2350,9 @@ function showSongLine() {
     celebrate();
     earnSticker();
     earnSticker();
+    // 歌詞をクリア（タイトルと重複しないように）
+    document.getElementById('songLyricJp').textContent = '';
+    document.getElementById('songLyricThai').textContent = '';
     // リピートボタンを表示
     document.getElementById('songRepeatBtn').style.display = 'block';
     // タップヒントを非表示
@@ -2580,6 +2583,9 @@ function showRecordedSongLine() {
     celebrate();
     earnSticker();
     earnSticker();
+    // 歌詞をクリア（タイトルと重複しないように）
+    document.getElementById('songLyricJp').textContent = '';
+    document.getElementById('songLyricThai').textContent = '';
     document.getElementById('songRepeatBtn').style.display = 'block';
     document.getElementById('songTapHint').style.display = 'none';
     document.getElementById('songTitleLabel').style.display = '';
