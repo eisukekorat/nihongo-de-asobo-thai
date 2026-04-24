@@ -1,13 +1,13 @@
 {
-  "name": "にほんご あそぼう！ เรียนภาษาญี่ปุ่น",
-  "short_name": "にほんご",
-  "description": "日本語をたのしくまなぼう！เรียนภาษาญี่ปุ่นกัน",
-  "start_url": "/nihongo-de-asobo/",
+  "name": "タイごと にほんご で あそぼう！ เล่นภาษาไทยกับญี่ปุ่น",
+  "short_name": "タイごと にほんご",
+  "description": "タイごと にほんごを いっしょに！เรียนภาษาไทยและญี่ปุ่นไปพร้อมกัน",
+  "start_url": "/nihongo-de-asobo-thai/",
   "display": "standalone",
   "background_color": "#fff7ed",
-  "theme_color": "#ff6b6b",
+  "theme_color": "#e91e63",
   "orientation": "portrait",
-  "lang": "ja",
+  "lang": "th",
   "icons": [
     {
       "src": "icons/icon-192.png",

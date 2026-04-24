@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ことばカメラ กล้องคำศัพท์</title>
+<title>กล้องคำศัพท์ ことばカメラ タイご・にほんご</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ことばカメラ">
@@ -373,7 +373,7 @@ body {
 <div id="view-menu" class="view active">
   <div class="menu-header">
     <button class="menu-back-btn" onclick="location.href='index.html'">←</button>
-    <span class="menu-title">ことばカメラ <span style="font-size:0.7em;opacity:0.6">กล้องคำศัพท์</span></span>
+    <span class="menu-title">กล้องคำศัพท์ <span style="font-size:0.65em;opacity:0.7">ことばカメラ</span></span>
   </div>
   <div class="menu-mascot-area">
     <div class="menu-mascot">🐻</div>
@@ -726,12 +726,12 @@ async function showPashaResult(matched, base64) {
     msg.textContent = '📷 もう いちど とったよ！ ถ่ายอีกครั้ง!';
   }
 
-  // 自動TTS
-  speakWord(entry.ja, 'ja');
+  // タイ語版: タイ語を先に、日本語を後に再生
+  speakWord(entry.th, 'th');
+  setTimeout(() => speakWord(entry.ja, 'ja'), 1400);
   if (entry.funVoice) {
-    setTimeout(() => speakWord(entry.funVoice, 'ja'), 1200);
+    setTimeout(() => speakWord(entry.funVoice, 'ja'), 2600);
   }
-  setTimeout(() => speakWord(entry.th, 'th'), entry.funVoice ? 2400 : 1500);
 }
 
 async function saveToZukan(key, entry, base64) {
@@ -860,7 +860,8 @@ async function buildTouchGrid() {
       }
       const label = document.createElement('div');
       label.className = 'touch-card-label';
-      label.innerHTML = w.entry.emoji + ' ' + w.entry.ja + '<br><span style="font-size:0.6em;opacity:0.5">' + w.entry.th + '</span>';
+      // タイ語版: タイ語を主役に
+      label.innerHTML = w.entry.emoji + ' <span style="font-weight:900">' + w.entry.th + '</span><br><span style="font-size:0.65em;opacity:0.55">' + w.entry.ja + '</span>';
       card.appendChild(label);
 
       card.addEventListener('click', () => onTouchCardTap(card, w.entry));
@@ -905,8 +906,9 @@ function onTouchCardTap(card, entry) {
   card.classList.add('playing');
   card.addEventListener('animationend', () => card.classList.remove('playing'), { once: true });
 
-  speakWord(entry.ja, 'ja');
-  setTimeout(() => speakWord(entry.th, 'th'), 1000);
+  // タイ語版: タイ語 → 日本語 の順
+  speakWord(entry.th, 'th');
+  setTimeout(() => speakWord(entry.ja, 'ja'), 1100);
 
   touchTapCount++;
   if (touchTapCount > 0 && touchTapCount % 5 === 0) {
@@ -1022,7 +1024,8 @@ function renderZukan(cat) {
     const label = document.createElement('div');
     label.className = 'zukan-card-label';
     if (z) {
-      label.innerHTML = entry.ja + '<br><span style="font-size:0.7em;opacity:0.5">' + entry.th + '</span>';
+      // タイ語版: タイ語を主役に
+      label.innerHTML = '<span style="font-weight:900">' + entry.th + '</span><br><span style="font-size:0.7em;opacity:0.55">' + entry.ja + '</span>';
     } else {
       label.textContent = '';
     }
@@ -1060,8 +1063,9 @@ async function openDetailModal(key, entry, photoId) {
   }
 
   document.getElementById('detail-modal').classList.add('show');
-  speakWord(entry.ja, 'ja');
-  setTimeout(() => speakWord(entry.th, 'th'), 1200);
+  // タイ語版: タイ語 → 日本語 の順
+  speakWord(entry.th, 'th');
+  setTimeout(() => speakWord(entry.ja, 'ja'), 1200);
 }
 
 function closeDetailModal(e) {
@@ -1112,7 +1116,8 @@ async function buildQuiz() {
   quizEntry1  = pool[0];
   quizEntry2  = pool[1];
   quizAnswer  = Math.random() < 0.5 ? 1 : 2;
-  quizLang    = Math.random() < 0.5 ? 'ja' : 'th';
+  // タイ語版: タイ語出題を主に（70%）、日本語出題も残す（30%）
+  quizLang    = Math.random() < 0.7 ? 'th' : 'ja';
 
   const questionEntry = quizAnswer === 1 ? quizEntry1 : quizEntry2;
   const questionText  = quizLang === 'ja' ? questionEntry.ja : questionEntry.th;
@@ -1139,7 +1144,8 @@ async function buildQuiz() {
 
     const lbl = document.createElement('div');
     lbl.className = 'quiz-choice-label';
-    lbl.innerHTML = entry.ja + '<br><span style="font-size:0.65em;opacity:0.5">' + entry.th + '</span>';
+    // タイ語版: タイ語を主役に
+    lbl.innerHTML = '<span style="font-weight:900">' + entry.th + '</span><br><span style="font-size:0.65em;opacity:0.55">' + entry.ja + '</span>';
     card.appendChild(lbl);
 
     card.onclick = () => onQuizChoice(card, idx, entry, questionEntry);

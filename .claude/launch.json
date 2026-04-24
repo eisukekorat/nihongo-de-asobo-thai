@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "nihongo-de-asobo",
+      "name": "nihongo-de-asobo-thai",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "3456", "-d", "/Users/eisukeoseto/Projects/nihongo-de-asobo"],
-      "port": 3456
+      "runtimeArgs": ["-m", "http.server", "3457", "-d", "/Users/eisukeoseto/Documents/開発/Projects/nihongo-de-asobo-thai"],
+      "port": 3457
     }
   ]
 }

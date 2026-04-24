@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="th">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>にほんご あそぼう！ เรียนภาษาญี่ปุ่น</title>
+<title>タイごと にほんご で あそぼう！ เล่นไทย・ญี่ปุ่น</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="にほんご">
-<meta name="theme-color" content="#ff6b6b">
+<meta name="apple-mobile-web-app-title" content="タイご・にほんご">
+<meta name="theme-color" content="#e91e63">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800;900&display=swap" rel="stylesheet">
@@ -134,13 +134,15 @@
   .word-card[data-cat="hiragana"]{border-color:rgba(255,212,59,0.5)}
 
   .card-emoji{font-size:clamp(2.8rem,10vw,3.8rem);line-height:1;margin-bottom:6px;display:block;transition:transform 0.15s}
-  .card-japanese{font-size:clamp(1rem,3.6vw,1.35rem);font-weight:900;color:var(--dark);margin-bottom:2px;line-height:1.3}
-  .card-thai{font-size:clamp(0.55rem,1.6vw,0.68rem);color:#ccc;font-weight:700;background:#f8f8f8;border-radius:8px;padding:2px 6px;display:inline-block}
+  /* タイ語版: タイ語を主役に（大きく）、日本語をサブに（小さめ） */
+  .card-thai{font-size:clamp(0.95rem,3.3vw,1.25rem);font-weight:900;color:var(--dark);margin-bottom:3px;line-height:1.25;display:block}
+  .card-japanese{font-size:clamp(0.75rem,2.4vw,0.95rem);color:#666;font-weight:700;background:#fff7ed;border-radius:8px;padding:2px 8px;display:inline-block;line-height:1.3}
   .card-sound-badge{position:absolute;top:6px;right:6px;font-size:0.7rem;opacity:0.5}
 
-  .word-card[data-cat="hiragana"] .card-japanese{font-size:clamp(2rem,8vw,2.8rem)}
+  /* ひらがなカテゴリは日本語（ひらがな）が主役のまま */
+  .word-card[data-cat="hiragana"] .card-japanese{font-size:clamp(2rem,8vw,2.8rem);background:transparent;color:var(--dark);font-weight:900}
   .word-card[data-cat="hiragana"] .card-emoji{font-size:clamp(1.6rem,5vw,2rem)}
-  .word-card[data-cat="hiragana"] .card-thai{font-size:0.55rem}
+  .word-card[data-cat="hiragana"] .card-thai{font-size:0.7rem;color:#888;font-weight:700}
 
   .sparkle-container{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:10}
   .sparkle{position:absolute;font-size:1.2rem;animation:sparkle-fly 0.8s ease-out forwards;pointer-events:none}
@@ -154,9 +156,10 @@
   .autoplay-overlay.active{display:flex}
   .autoplay-emoji{font-size:clamp(6rem,28vw,10rem);animation:autoplay-bounce 0.8s cubic-bezier(0.34,1.56,0.64,1);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.1))}
   @keyframes autoplay-bounce{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.1) rotate(5deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}
-  .autoplay-text{font-size:clamp(2rem,7vw,3.5rem);font-weight:900;color:var(--dark);margin-top:16px;animation:autoplay-text-in 0.5s 0.3s ease both}
+  /* タイ語版: タイ語を主役に大きく、日本語をサブに */
+  .autoplay-thai-text{font-size:clamp(2.2rem,7.5vw,3.8rem);font-weight:900;color:var(--dark);margin-top:16px;animation:autoplay-text-in 0.5s 0.3s ease both;line-height:1.15}
   @keyframes autoplay-text-in{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-  .autoplay-thai-text{font-size:clamp(0.9rem,2.5vw,1.1rem);font-weight:700;color:#bbb;margin-top:6px;animation:autoplay-text-in 0.5s 0.5s ease both}
+  .autoplay-text{font-size:clamp(1.1rem,3.2vw,1.6rem);font-weight:800;color:#888;margin-top:6px;animation:autoplay-text-in 0.5s 0.5s ease both;background:#fff7ed;border-radius:14px;padding:4px 14px;display:inline-block}
   .autoplay-repeat-label{font-size:0.8rem;font-weight:800;color:var(--c4);margin-top:10px;opacity:0;transition:opacity 0.3s}
   .autoplay-repeat-label.show{opacity:1}
   .autoplay-progress{position:absolute;bottom:0;left:0;height:6px;background:var(--yellow);border-radius:3px;animation:progress-bar var(--autoplay-duration) linear}
@@ -549,8 +552,8 @@
 <div class="mascot-level-badge" id="mascotLevelBadge"></div>
 
 <div class="header">
-  <h1><span>に</span><span>ほ</span><span>ん</span><span>ご</span><span>あ</span><span>そ</span><span>ぼ</span><span>う</span><span>！</span></h1>
-  <p class="header-sub">เรียนภาษาญี่ปุ่นกัน 🇯🇵</p>
+  <h1><span>タ</span><span>イ</span><span>ご</span><span>と</span><span>に</span><span>ほ</span><span>ん</span><span>ご</span><span>！</span></h1>
+  <p class="header-sub">เล่นภาษาไทย・ญี่ปุ่น 🇹🇭🇯🇵</p>
 </div>
 
 <div class="cat-tabs" id="catTabs">
@@ -634,8 +637,8 @@
     <button class="quiz-diff-btn" id="quizDiff4" onclick="setQuizDiff(4)">4️⃣ 4たく<span class="thai-sub">4 ตัวเลือก</span></button>
   </div>
   <div class="quiz-direction">
-    <button class="quiz-dir-btn active" id="quizDirJp" onclick="setQuizDirection('jp')">🎌 えもじ→にほんご<span class="thai-sub">อิโมจิ→ญี่ปุ่น</span></button>
-    <button class="quiz-dir-btn" id="quizDirTh" onclick="setQuizDirection('thai')">🇹🇭 タイご→にほんご<span class="thai-sub">ไทย→ญี่ปุ่น</span></button>
+    <button class="quiz-dir-btn" id="quizDirJp" onclick="setQuizDirection('jp')">🎌 えもじ→にほんご<span class="thai-sub">อิโมจิ→ญี่ปุ่น</span></button>
+    <button class="quiz-dir-btn active" id="quizDirTh" onclick="setQuizDirection('thai')">🇹🇭 タイご→にほんご<span class="thai-sub">ไทย→ญี่ปุ่น</span></button>
   </div>
   <div class="quiz-question">
     <span class="quiz-emoji-big" id="quizEmoji">🐶</span>
@@ -1172,16 +1175,17 @@ const mascotMsgs=[
   {jp:'たのしい？', th:'สนุกไหม?'},
   {jp:'もういっかい！', th:'อีกครั้ง!'},
   {jp:'やってみよう！', th:'ลองดู!'},
-  {jp:'にほんご だいすき！', th:'ชอบภาษาญี่ปุ่น!'},
+  {jp:'タイごと にほんご だいすき！', th:'ชอบภาษาไทยและญี่ปุ่น!'},
 ];
 let mascotTimeout;
 function mascotTap(){
   const sp=document.getElementById('mascotSpeech');
   const msg=mascotMsgs[Math.floor(Math.random()*mascotMsgs.length)];
-  sp.innerHTML=msg.jp+'<br><span style="font-size:0.75em;opacity:0.7">'+msg.th+'</span>';
-  speak(msg.jp);
+  // タイ語版: タイ語を大きく、日本語をサブに表示
+  sp.innerHTML='<span style="font-size:1em">'+msg.th+'</span><br><span style="font-size:0.7em;opacity:0.7">'+msg.jp+'</span>';
+  speakBilingual(msg,400);
   clearTimeout(mascotTimeout);
-  mascotTimeout=setTimeout(()=>sp.classList.remove('show'),2500);
+  mascotTimeout=setTimeout(()=>sp.classList.remove('show'),3500);
   sp.classList.add('show');
 }
 
@@ -1325,8 +1329,8 @@ function playAudioBlob(blob){
   });
 }
 
-async function speakGoogle(text,speed=0.85){
-  const cacheKey='g_'+text+'_'+speed.toFixed(2);
+async function speakGoogle(text,speed=0.85,lang='ja'){
+  const cacheKey='g_'+lang+'_'+text+'_'+speed.toFixed(2);
   // 1. キャッシュ確認
   const cached=await TTSCache.get(cacheKey);
   if(cached){await playAudioBlob(cached);return;}
@@ -1337,15 +1341,15 @@ async function speakGoogle(text,speed=0.85){
     const res=await fetch(TTS_WORKER_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text,speed}),
+      body:JSON.stringify({text,speed,lang}),
     });
     if(!res.ok)throw new Error('TTS error '+res.status);
     const blob=await res.blob();
     await TTSCache.save(cacheKey,blob);
     await playAudioBlob(blob);
   }catch(e){
-    // エラー時はローカルTTSにフォールバック
-    speakLocal(text);
+    // エラー時はローカルTTSにフォールバック（日本語のみ）
+    if(lang==='ja')speakLocal(text);
   }
 }
 
@@ -1354,10 +1358,47 @@ function speak(text,rate=0.72,pitch=1.25){
   if(TTS_WORKER_URL){
     // rate を Google TTS の speakingRate に変換（0.72→0.86、1.0→1.2 程度）
     const speed=Math.max(0.5,Math.min(rate*1.18,1.5));
-    speakGoogle(text,speed);
+    speakGoogle(text,speed,'ja');
   }else{
     speakLocal(text,rate,pitch);
   }
+}
+
+// タイ語音声のみ再生
+function speakThai(text,rate=0.9){
+  if(!text)return Promise.resolve();
+  if(TTS_WORKER_URL){
+    const speed=Math.max(0.5,Math.min(rate,1.3));
+    return speakGoogle(text,speed,'th');
+  }
+  // Worker未設定時はWeb Speech APIのth-THを試す
+  return new Promise((resolve)=>{
+    try{
+      synth.cancel();
+      setTimeout(()=>{
+        const u=new SpeechSynthesisUtterance(text);
+        u.lang='th-TH';u.rate=rate;u.volume=1.0;
+        const voices=synth.getVoices();
+        const thV=voices.find(v=>v.lang==='th-TH')||voices.find(v=>v.lang.startsWith('th'));
+        if(thV)u.voice=thV;
+        u.onend=resolve;u.onerror=resolve;
+        synth.speak(u);
+      },50);
+    }catch(e){resolve();}
+  });
+}
+
+// バイリンガル再生: タイ語 → 間 → 日本語 の順
+// item は {jp, th} または文字列（文字列の場合は日本語のみ）
+async function speakBilingual(item,gapMs=450){
+  if(typeof item==='string'){speak(item);return;}
+  const th=item.th||item.thai;
+  const jp=item.jp||item.ja;
+  if(th){
+    await speakThai(th,0.9);
+    await new Promise(r=>setTimeout(r,gapMs));
+  }
+  if(jp)speak(jp);
 }
 
 // =========================================================
@@ -1499,7 +1540,7 @@ function updateQuizScore(){
   el.innerHTML=`<div class="stars">${'⭐'.repeat(quizCorrect)}${'☆'.repeat(quizTotal-quizCorrect)}</div>`;
 }
 
-let quizDirection='jp';  // 'jp' = 絵文字→日本語, 'thai' = タイ語→日本語
+let quizDirection='thai';  // タイ語版デフォルト: 'thai' = タイ語音声→日本語を選ぶ
 
 function setQuizDirection(dir){
   quizDirection=dir;
@@ -1526,15 +1567,16 @@ function showQuizCard(){
   const thaiBig=document.getElementById('quizThaiBig');
 
   if(quizDirection==='thai'){
-    // タイ語モード: タイ語テキストを大きく表示
-    emojiEl.textContent=correct.emoji;
-    emojiEl.style.fontSize='clamp(3.5rem,14vw,5.5rem)';
-    thaiBig.textContent=correct.thai;
+    // タイ語モード: タイ語テキストを大きく表示＋タイ語音声を再生
+    emojiEl.textContent='🔊';
+    emojiEl.style.fontSize='clamp(2.5rem,10vw,4rem)';
+    thaiBig.textContent=correct.thai||correct.th||'';
     thaiBig.classList.add('show');
     ft.style.display='none';
-    document.getElementById('quizPrompt').textContent='にほんごで なんていう？';
-    document.getElementById('quizPromptThai').textContent='ภาษาญี่ปุ่น คือคำไหน?';
-    // タイ語モードでは音声を出さない（タイ語テキストを見て考えさせる）
+    document.getElementById('quizPrompt').textContent='これは どれ？';
+    document.getElementById('quizPromptThai').textContent='อันไหนคือ '+(correct.thai||correct.th||'')+'?';
+    // タイ語音声で出題（まだ読めない子供のために必須）
+    setTimeout(()=>speakThai(correct.thai||correct.th,0.85),500);
   }else{
     // 通常モード（絵文字→日本語）
     emojiEl.textContent=correct.emoji;
@@ -1542,9 +1584,11 @@ function showQuizCard(){
     thaiBig.classList.remove('show');
     ft.style.display=isPhrase?'block':'none';
     if(isPhrase)ft.textContent=correct.jp;
-    document.getElementById('quizPrompt').textContent=isPhrase?'なんていうの？':`「${correct.jp}」はどれ？`;
-    document.getElementById('quizPromptThai').textContent=isPhrase?'พูดว่าอะไรนะ?':`"${correct.jp}" คือตัวไหน?`;
-    setTimeout(()=>speak(correct.jp),500);
+    // タイ語主導: プロンプトでも「タイ語 → どれ？」の流れに
+    document.getElementById('quizPrompt').textContent=isPhrase?'なんていうの？':`「${correct.thai||correct.th||correct.jp}」は どれ？`;
+    document.getElementById('quizPromptThai').textContent=isPhrase?'พูดว่าอะไรนะ?':`"${correct.thai||correct.th}" คืออะไร?`;
+    // タイ語を先に読み上げて、子供がタイ語から日本語を探す流れ
+    setTimeout(()=>speakBilingual(correct),500);
   }
 
   const ch=document.getElementById('quizChoices');ch.innerHTML='';quizAnswered=false;
@@ -1557,7 +1601,8 @@ function showQuizCard(){
     btn.innerHTML=`<span class="choice-emoji">${item.emoji}</span><span class="choice-text">${item.jp}</span>`;
     btn.addEventListener('click',()=>{
       if(quizAnswered)return;quizAnswered=true;quizTotal++;
-      speak(item.jp);
+      // タップした選択肢をバイリンガルで読み上げ（対応を覚える）
+      speakBilingual(item);
       if(item.jp===correct.jp){
         quizCorrect++;btn.classList.add('correct');celebrate();earnSticker();
         if(item.sound)speakAnimalSound(item);
@@ -1621,8 +1666,8 @@ function celebrate(){
   }
   cel.classList.add('show');cel.style.display='flex';
   const pv=msgs[Math.floor(Math.random()*msgs.length)];
-  setTimeout(()=>speak(pv.jp),300);
-  setTimeout(()=>{cel.classList.remove('show');cel.style.display='none';},1600);
+  setTimeout(()=>speakBilingual(pv,350),300);
+  setTimeout(()=>{cel.classList.remove('show');cel.style.display='none';},2200);
 }
 
 // =========================================================
@@ -1653,8 +1698,9 @@ function showAutoplayCard(){
     stopAutoplay();celebrate();return;
   }
   const item=autoplayItems[autoplayIndex];
-  const baseDuration=autoplayRepeat?4500:3500;
-  const repeatDelay=2000; // extra time for second read
+  // タイ語主導: タイ語→日本語 を順に再生するため時間を延長
+  const baseDuration=autoplayRepeat?6500:5000;
+  const repeatDelay=2500; // extra time for second read
 
   document.getElementById('autoplayCounter').textContent=`${autoplayIndex+1} / ${autoplayItems.length}`;
 
@@ -1668,13 +1714,14 @@ function showAutoplayCard(){
   emojiEl.style.animation='none';void emojiEl.offsetWidth;
   emojiEl.style.animation='autoplay-bounce 0.8s cubic-bezier(0.34,1.56,0.64,1)';
 
+  // タイ語版: タイ語を大きく主役に、日本語をサブに
+  thaiEl.textContent=item.thai||item.th||'';
+  thaiEl.style.animation='none';void thaiEl.offsetWidth;
+  thaiEl.style.animation='autoplay-text-in 0.5s 0.3s ease both';
+
   textEl.textContent=item.jp;
   textEl.style.animation='none';void textEl.offsetWidth;
-  textEl.style.animation='autoplay-text-in 0.5s 0.3s ease both';
-
-  thaiEl.textContent=item.thai;
-  thaiEl.style.animation='none';void thaiEl.offsetWidth;
-  thaiEl.style.animation='autoplay-text-in 0.5s 0.5s ease both';
+  textEl.style.animation='autoplay-text-in 0.5s 0.5s ease both';
 
   repeatLabel.classList.remove('show');
 
@@ -1683,14 +1730,14 @@ function showAutoplayCard(){
   progressEl.style.animation='none';void progressEl.offsetWidth;
   progressEl.style.animation=`progress-bar ${totalDuration}ms linear`;
 
-  // First read: slow
-  setTimeout(()=>speak(item.jp,0.65,1.25),600);
+  // First read: タイ語 → 間 → 日本語
+  setTimeout(()=>speakBilingual(item,550),600);
 
   if(autoplayRepeat){
-    // Second read: normal speed after a pause
+    // Second read: 再度バイリンガル（少し早め）
     setTimeout(()=>{
       repeatLabel.classList.add('show');
-      speak(item.jp,0.85,1.2);
+      speakBilingual(item,400);
     },baseDuration);
   }
 
@@ -1710,7 +1757,7 @@ function stopAutoplay(){
 document.getElementById('autoplayOverlay').addEventListener('click',(e)=>{
   if(e.target.closest('.autoplay-close'))return;
   if(autoplayItems[autoplayIndex]){
-    speak(autoplayItems[autoplayIndex].jp);
+    speakBilingual(autoplayItems[autoplayIndex]);
     const el=document.getElementById('autoplayEmoji');
     el.style.animation='none';void el.offsetWidth;
     el.style.animation='autoplay-bounce 0.8s cubic-bezier(0.34,1.56,0.64,1)';
@@ -2876,17 +2923,18 @@ async function playVoiceOrTTS(item){
       const sw=document.getElementById('soundWave');
       sw.classList.add('active');
       audio.onended=()=>{sw.classList.remove('active');URL.revokeObjectURL(url);};
-      audio.onerror=()=>{sw.classList.remove('active');URL.revokeObjectURL(url);speak(item.jp);};
+      audio.onerror=()=>{sw.classList.remove('active');URL.revokeObjectURL(url);speakBilingual(item);};
       audio.play().catch(()=>{
         // iOS may block autoplay, fallback to TTS
         sw.classList.remove('active');
         URL.revokeObjectURL(url);
-        speak(item.jp);
+        speakBilingual(item);
       });
       return;
     }
   }
-  speak(item.jp);
+  // タイ語主導: タイ語 → 間 → 日本語 の順で再生
+  speakBilingual(item);
 }
 
 function toggleRecMode(){
@@ -2991,10 +3039,20 @@ function createWordCard(item){
   const card=document.createElement('div');card.className='word-card';
   card.dataset.cat=currentCat;
   const hasRec=voiceKeys.has(currentCat+'_'+item.jp);
-  card.innerHTML=`
+  // タイ語を主役に先に表示、日本語をサブに（ひらがなカテゴリは別CSSで日本語主役）
+  const isHira=currentCat==='hiragana';
+  card.innerHTML=isHira?`
     <span class="card-emoji">${item.emoji}</span>
     <div class="card-japanese">${item.jp}</div>
-    <div class="card-thai">${item.thai}</div>
+    <div class="card-thai">${item.thai||''}</div>
+    ${item.sound?'<div class="card-sound-badge">🔊</div>':''}
+    ${hasRec?'<div class="card-rec-badge">🎙️</div>':''}
+    <div class="sparkle-container"></div>
+    <div class="sound-ripple"></div>
+  `:`
+    <span class="card-emoji">${item.emoji}</span>
+    <div class="card-thai">${item.thai||item.jp}</div>
+    <div class="card-japanese">${item.jp}</div>
     ${item.sound?'<div class="card-sound-badge">🔊</div>':''}
     ${hasRec?'<div class="card-rec-badge">🎙️</div>':''}
     <div class="sparkle-container"></div>

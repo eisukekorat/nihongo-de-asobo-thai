@@ -1,5 +1,5 @@
-// にほんごであそぼ Service Worker v11
-const CACHE_NAME = 'nihongo-v12';
+// タイごと にほんご であそぼ Service Worker v1
+const CACHE_NAME = 'nihongo-thai-v1';
 const ASSETS = [
   'index.html',
   'camera.html',
@@ -70,7 +70,7 @@ self.addEventListener('fetch', (e) => {
             if (cached) return cached;
             // HTMLリクエストでキャッシュもない場合はindex.htmlを返す
             if (e.request.headers.get('accept')?.includes('text/html')) {
-              return caches.match('/nihongo-de-asobo/index.html');
+              return caches.match('/nihongo-de-asobo-thai/index.html');
             }
           });
         })
@@ -100,7 +100,7 @@ self.addEventListener('fetch', (e) => {
         .catch(() => {
           // オフライン時はindex.htmlを返す
           if (e.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/nihongo-de-asobo/index.html');
+            return caches.match('/nihongo-de-asobo-thai/index.html');
           }
         });
     })
