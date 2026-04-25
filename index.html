@@ -1401,6 +1401,16 @@ async function speakBilingual(item,gapMs=450){
   if(jp)speak(jp);
 }
 
+// 単語アイテム再生: ひらがなカテゴリは日本語のみ、それ以外はバイリンガル
+// （ひらがなカテゴリの thai フィールドは「อา • あめ(ฝน)」のような発音指南で TTS 不向き）
+function speakWordItem(item,gapMs=450){
+  if(typeof currentCat!=='undefined' && currentCat==='hiragana'){
+    speak(item.jp||item.ja);
+    return Promise.resolve();
+  }
+  return speakBilingual(item,gapMs);
+}
+
 // =========================================================
 //  ANIMAL / VEHICLE SOUND EFFECTS
 // =========================================================
@@ -1566,7 +1576,9 @@ function showQuizCard(){
   const emojiEl=document.getElementById('quizEmoji');
   const thaiBig=document.getElementById('quizThaiBig');
 
-  if(quizDirection==='thai'){
+  // ひらがなカテゴリの thai フィールドは発音指南なのでタイ語モードを使わない
+  const useThaiMode = quizDirection==='thai' && currentCat!=='hiragana';
+  if(useThaiMode){
     // タイ語モード: タイ語テキストを大きく表示＋タイ語音声を再生
     emojiEl.textContent='🔊';
     emojiEl.style.fontSize='clamp(2.5rem,10vw,4rem)';
@@ -1584,11 +1596,18 @@ function showQuizCard(){
     thaiBig.classList.remove('show');
     ft.style.display=isPhrase?'block':'none';
     if(isPhrase)ft.textContent=correct.jp;
-    // タイ語主導: プロンプトでも「タイ語 → どれ？」の流れに
-    document.getElementById('quizPrompt').textContent=isPhrase?'なんていうの？':`「${correct.thai||correct.th||correct.jp}」は どれ？`;
-    document.getElementById('quizPromptThai').textContent=isPhrase?'พูดว่าอะไรนะ?':`"${correct.thai||correct.th}" คืออะไร?`;
-    // タイ語を先に読み上げて、子供がタイ語から日本語を探す流れ
-    setTimeout(()=>speakBilingual(correct),500);
+    // ひらがなカテゴリは日本語のみのプロンプトに（thaiフィールドが発音指南で表示に不向き）
+    const isHira=currentCat==='hiragana';
+    if(isHira){
+      document.getElementById('quizPrompt').textContent=`「${correct.jp}」は どれ？`;
+      document.getElementById('quizPromptThai').textContent=`"${correct.jp}" อยู่ไหน?`;
+    }else{
+      // タイ語主導: プロンプトでも「タイ語 → どれ？」の流れに
+      document.getElementById('quizPrompt').textContent=isPhrase?'なんていうの？':`「${correct.thai||correct.th||correct.jp}」は どれ？`;
+      document.getElementById('quizPromptThai').textContent=isPhrase?'พูดว่าอะไรนะ?':`"${correct.thai||correct.th}" คืออะไร?`;
+    }
+    // ひらがなは日本語のみ、それ以外はタイ語→日本語
+    setTimeout(()=>speakWordItem(correct),500);
   }
 
   const ch=document.getElementById('quizChoices');ch.innerHTML='';quizAnswered=false;
@@ -1601,8 +1620,8 @@ function showQuizCard(){
     btn.innerHTML=`<span class="choice-emoji">${item.emoji}</span><span class="choice-text">${item.jp}</span>`;
     btn.addEventListener('click',()=>{
       if(quizAnswered)return;quizAnswered=true;quizTotal++;
-      // タップした選択肢をバイリンガルで読み上げ（対応を覚える）
-      speakBilingual(item);
+      // タップした選択肢を読み上げ（ひらがなは日本語のみ、それ以外はバイリンガル）
+      speakWordItem(item);
       if(item.jp===correct.jp){
         quizCorrect++;btn.classList.add('correct');celebrate();earnSticker();
         if(item.sound)speakAnimalSound(item);
@@ -1730,14 +1749,14 @@ function showAutoplayCard(){
   progressEl.style.animation='none';void progressEl.offsetWidth;
   progressEl.style.animation=`progress-bar ${totalDuration}ms linear`;
 
-  // First read: タイ語 → 間 → 日本語
-  setTimeout(()=>speakBilingual(item,550),600);
+  // First read: タイ語 → 間 → 日本語（ひらがなカテゴリは日本語のみ）
+  setTimeout(()=>speakWordItem(item,550),600);
 
   if(autoplayRepeat){
-    // Second read: 再度バイリンガル（少し早め）
+    // Second read: 再度（少し早め）
     setTimeout(()=>{
       repeatLabel.classList.add('show');
-      speakBilingual(item,400);
+      speakWordItem(item,400);
     },baseDuration);
   }
 
@@ -1757,7 +1776,7 @@ function stopAutoplay(){
 document.getElementById('autoplayOverlay').addEventListener('click',(e)=>{
   if(e.target.closest('.autoplay-close'))return;
   if(autoplayItems[autoplayIndex]){
-    speakBilingual(autoplayItems[autoplayIndex]);
+    speakWordItem(autoplayItems[autoplayIndex]);
     const el=document.getElementById('autoplayEmoji');
     el.style.animation='none';void el.offsetWidth;
     el.style.animation='autoplay-bounce 0.8s cubic-bezier(0.34,1.56,0.64,1)';
@@ -2923,18 +2942,18 @@ async function playVoiceOrTTS(item){
       const sw=document.getElementById('soundWave');
       sw.classList.add('active');
       audio.onended=()=>{sw.classList.remove('active');URL.revokeObjectURL(url);};
-      audio.onerror=()=>{sw.classList.remove('active');URL.revokeObjectURL(url);speakBilingual(item);};
+      audio.onerror=()=>{sw.classList.remove('active');URL.revokeObjectURL(url);speakWordItem(item);};
       audio.play().catch(()=>{
         // iOS may block autoplay, fallback to TTS
         sw.classList.remove('active');
         URL.revokeObjectURL(url);
-        speakBilingual(item);
+        speakWordItem(item);
       });
       return;
     }
   }
-  // タイ語主導: タイ語 → 間 → 日本語 の順で再生
-  speakBilingual(item);
+  // タイ語主導: タイ語 → 間 → 日本語（ひらがなカテゴリは日本語のみ）
+  speakWordItem(item);
 }
 
 function toggleRecMode(){
